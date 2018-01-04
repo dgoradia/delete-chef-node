@@ -10,6 +10,10 @@ BASE 			= $(GOPATH)/src/$(PACKAGE)
 PKGS 			= $(or $(PKG),$(shell cd $(BASE) && env GOPATH=$(GOPATH) $(GO) list ./... | grep -v "^$(PACKAGE)/vendor/"))
 TESTPKGS	= $(shell env GOPATH=$(GOPATH) $(GO) list -f '{{ if or .TestGoFiles .XTestGoFiles }}{{ .ImportPath }}{{ end }}' $(PKGS))
 
+BUCKET		= binaries.devops.drinks.com
+
+GOARCH = amd64
+
 GO 				= go
 GODOC			= godoc
 GOFMT			= gofmt
@@ -20,12 +24,7 @@ Q					= $(if $(filter 1,$V),,@)
 M					= $(shell printf "\033[34;1m▶\033[0m")
 
 .PHONY: all
-all: fmt lint vendor | $(BASE) ; $(info $(M) building executable...) @ ## Build binary
-	$Q cd $(BASE) && $(GO) build \
-		 -tags release \
-		 -ldflags '-X $(PACKAGE).Version=$(VERSION) -X $(PACKAGE).BuildDate=$(DATE)' \
-		 -o bin/$(PACKAGE) \
-		 && rm -rf $(GOPATH)
+all: fmt lint vendor linux darwin tidy
 
 $(BASE): ; $(info $(M) setting GOPATH...)
 	@mkdir -p $(dir $@)
@@ -35,6 +34,20 @@ $(BASE): ; $(info $(M) setting GOPATH...)
 GOLINT = $(BIN)/golint
 $(BIN)/golint: | $(BASE) ; $(info $(M) building golint…)
 	$Q go get github.com/golang/lint/golint
+
+.PHONY: linux
+linux: $(BASE) ; $(info $(M) building executable...) @ ## Build binary
+	$Q cd $(BASE) && GOOS=linux GOARCH=$(GOARCH) $(GO) build \
+		 -tags release \
+		 -ldflags '-X $(PACKAGE).Version=$(VERSION) -X $(PACKAGE).BuildDate=$(DATE)' \
+		 -o bin/$(PACKAGE)-linux-$(GOARCH)
+
+.PHONY: darwin
+darwin: $(BASE) ; $(info $(M) building executable...) @ ## Build binary
+	$Q cd $(BASE) && GOOS=darwin GOARCH=$(GOARCH) $(GO) build \
+		 -tags release \
+		 -ldflags '-X $(PACKAGE).Version=$(VERSION) -X $(PACKAGE).BuildDate=$(DATE)' \
+		 -o bin/$(PACKAGE)-darwin-$(GOARCH)
 
 .PHONY: lint
 lint: vendor | $(BASE) $(GOLINT) ; $(info $(M) running golint…) @ ## Run golint
@@ -58,11 +71,20 @@ vendor: glide.lock | $(BASE) ; $(info $(M) retrieving dependencies...)
 	# @ln -nsf . vendor/src
 	@touch $@
 
+.PHONY: upload
+upload: ; $(info $(M) uploading binary to S3...) @
+	@aws s3 cp bin/$(PACKAGE)-linux-$(GOARCH) s3://$(BUCKET)/$(PACKAGE)/$(PACKAGE)-linux-$(GOARCH)-$(VERSION) 2> /dev/null
+	@aws s3 cp bin/$(PACKAGE)-darwin-$(GOARCH) s3://$(BUCKET)/$(PACKAGE)/$(PACKAGE)-darwin-$(GOARCH)-$(VERSION) 2> /dev/null
+
 .PHONY: clean
 clean: ; $(info $(M) cleaning...) @ ## Clean shit up
 	@rm -rf $(GOPATH)
 	@rm -rf bin
 	@rm -rf test/tests.* test/coverage.*
+
+.PHONY: tidy
+tidy: ; $(info $(M) tidying up build...) @ ## Tidy shit up
+	@rm -rf $(GOPATH)
 
 .PHONY: help
 help:
