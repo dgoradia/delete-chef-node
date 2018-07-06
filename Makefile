@@ -40,14 +40,14 @@ linux: $(BASE) ; $(info $(M) building executable...) @ ## Build binary
 	$Q cd $(BASE) && GOOS=linux GOARCH=$(GOARCH) $(GO) build \
 		 -tags release \
 		 -ldflags '-X $(PACKAGE).Version=$(VERSION) -X $(PACKAGE).BuildDate=$(DATE)' \
-		 -o bin/$(PACKAGE)-linux-$(GOARCH)
+		 -o bin/$(PACKAGE)-linux-$(GOARCH)-$(VERSION)
 
 .PHONY: darwin
 darwin: $(BASE) ; $(info $(M) building executable...) @ ## Build binary
 	$Q cd $(BASE) && GOOS=darwin GOARCH=$(GOARCH) $(GO) build \
 		 -tags release \
 		 -ldflags '-X $(PACKAGE).Version=$(VERSION) -X $(PACKAGE).BuildDate=$(DATE)' \
-		 -o bin/$(PACKAGE)-darwin-$(GOARCH)
+		 -o bin/$(PACKAGE)-darwin-$(GOARCH)-$(VERSION)
 
 .PHONY: lint
 lint: vendor | $(BASE) $(GOLINT) ; $(info $(M) running golint…) @ ## Run golint

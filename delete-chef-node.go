@@ -4,18 +4,19 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sns"
-	"io/ioutil"
-	"os"
-	"strings"
 )
 
 // Version : returns the version string
 func Version() string {
-	return "v0.1.0"
+	return "v0.2.0"
 }
 
 // PrintVersion : prints the version string
@@ -40,8 +41,8 @@ func (c *Config) mapFromConfig() map[string]string {
 	return m
 }
 
-func getNodeName(conf *Config) string {
-	return conf.mapFromConfig()["node_name"]
+func (c *Config) getNodeName() string {
+	return c.mapFromConfig()["node_name"]
 }
 
 // func mapFromConfig(file []byte) map[string]string {
@@ -106,13 +107,6 @@ func main() {
 	checkError(err)
 	// fmt.Println(topics)
 
-	// We need to know the node name of the server that's registered on
-	// the Chef Server. This is done upon instance creation via user-data
-	// and appeneded to the client.rb file as node_name.
-	// Read in the client.rb file into memory.
-	file, err := ioutil.ReadFile("/etc/chef/client.rb")
-	checkError(err)
-
 	// Search for a chef_server_api topic, passing a pointer reference
 	// instead of value.
 	var topicArn string
@@ -129,7 +123,15 @@ func main() {
 	if node != "" {
 		nodeName = node
 	} else {
-		nodeName = getNodeName(&Config{file})
+		// We need to know the node name of the server that's registered on
+		// the Chef Server. This is done upon instance creation via user-data
+		// and appeneded to the client.rb file as node_name.
+		// Read in the client.rb file into memory.
+		file, err := ioutil.ReadFile("/etc/chef/client.rb")
+		checkError(err)
+
+		config := &Config{file}
+		nodeName = config.getNodeName()
 	}
 	// nodeName := nodeName(&Config{file})
 
